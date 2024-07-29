@@ -1,24 +1,38 @@
 local car = { x = 200, y = 500, width = 50, height = 100, speed = 200 }
 local obstacles = {}
+local powerups = {}
 local obstacleSpeed = 100
 local spawnInterval = 2
+local powerupSpawnInterval = 10
 local timeSinceLastSpawn = 0
+local timeSinceLastPowerup = 0
 local score = 0
 local isGameOver = false
+local isPaused = false
+local highScore = 0
 local difficultyIncreaseRate = 0.1
 local timeSinceLastDifficultyIncrease = 0
+local speedBoostDuration = 5
+local speedBoostActive = false
+local speedBoostEndTime = 0
 
 function love.load()
     car.image = love.graphics.newImage("car.png")
     car.width = car.image:getWidth()
     car.height = car.image:getHeight()
     obstacleImage = love.graphics.newImage("obstacle.png")
+    powerupImage = love.graphics.newImage("powerup.png")
     scoreSound = love.audio.newSource("score.wav", "static")
     crashSound = love.audio.newSource("crash.wav", "static")
+    backgroundMusic = love.audio.newSource("background.mp3", "stream")
     love.graphics.setFont(love.graphics.newFont(24))
+    backgroundMusic:setLooping(true)
+    love.audio.play(backgroundMusic)
 end
 
 function love.update(dt)
+    if isPaused then return end
+
     if isGameOver then
         if love.keyboard.isDown("return") then
             -- Restart the game
@@ -36,17 +50,36 @@ function love.update(dt)
     if car.x < 0 then car.x = 0 end
     if car.x > love.graphics.getWidth() - car.width then car.x = love.graphics.getWidth() - car.width end
 
+    -- Handle power-up duration
+    if speedBoostActive and love.timer.getTime() > speedBoostEndTime then
+        car.speed = 200
+        speedBoostActive = false
+    end
 
     timeSinceLastSpawn = timeSinceLastSpawn + dt
     if timeSinceLastSpawn > spawnInterval then
         timeSinceLastSpawn = 0
-        table.insert(obstacles, { x = math.random(0, love.graphics.getWidth() - car.width), y = -car.height })
+        local obstacle = { x = math.random(0, love.graphics.getWidth() - car.width), y = -car.height, speed = obstacleSpeed }
+        table.insert(obstacles, obstacle)
         score = score + 1
         love.audio.play(scoreSound)
     end
 
+    timeSinceLastPowerup = timeSinceLastPowerup + dt
+    if timeSinceLastPowerup > powerupSpawnInterval then
+        timeSinceLastPowerup = 0
+        local powerup = { x = math.random(0, love.graphics.getWidth() - car.width), y = -car.height }
+        table.insert(powerups, powerup)
+    end
+
+
     for i, obstacle in ipairs(obstacles) do
-        obstacle.y = obstacle.y + obstacleSpeed * dt
+        obstacle.y = obstacle.y + obstacle.speed * dt
+    end
+
+
+    for i, powerup in ipairs(powerups) do
+        powerup.y = powerup.y + obstacleSpeed * dt
     end
 
 
@@ -57,10 +90,24 @@ function love.update(dt)
         elseif CheckCollision(car.x, car.y, car.width, car.height, obstacle.x, obstacle.y, car.width, car.height) then
             love.audio.play(crashSound)
             isGameOver = true
+            if score > highScore then
+                highScore = score
+            end
         end
     end
 
- 
+
+    for i = #powerups, 1, -1 do
+        local powerup = powerups[i]
+        if powerup.y > love.graphics.getHeight() then
+            table.remove(powerups, i)
+        elseif CheckCollision(car.x, car.y, car.width, car.height, powerup.x, powerup.y, car.width, car.height) then
+            table.remove(powerups, i)
+            activateSpeedBoost()
+        end
+    end
+
+
     timeSinceLastDifficultyIncrease = timeSinceLastDifficultyIncrease + dt
     if timeSinceLastDifficultyIncrease > 10 then
         timeSinceLastDifficultyIncrease = 0
@@ -68,19 +115,24 @@ function love.update(dt)
     end
 end
 
-
 function love.draw()
     love.graphics.draw(car.image, car.x, car.y)
     for _, obstacle in ipairs(obstacles) do
         love.graphics.draw(obstacleImage, obstacle.x, obstacle.y)
     end
+    for _, powerup in ipairs(powerups) do
+        love.graphics.draw(powerupImage, powerup.x, powerup.y)
+    end
     love.graphics.print("Score: " .. score, 10, 10)
+    love.graphics.print("High Score: " .. highScore, 10, 40)
 
     if isGameOver then
         love.graphics.printf("Game Over! Press Enter to restart", 0, love.graphics.getHeight() / 2, love.graphics.getWidth(), "center")
     end
+    if isPaused then
+        love.graphics.printf("Paused. Press 'P' to resume", 0, love.graphics.getHeight() / 2 + 50, love.graphics.getWidth(), "center")
+    end
 end
-
 
 function CheckCollision(x1, y1, w1, h1, x2, y2, w2, h2)
     return x1 < x2 + w2 and
@@ -89,15 +141,35 @@ function CheckCollision(x1, y1, w1, h1, x2, y2, w2, h2)
            y2 < y1 + h1
 end
 
+-- Activate speed boost power-up
+function activateSpeedBoost()
+    car.speed = 400
+    speedBoostActive = true
+    speedBoostEndTime = love.timer.getTime() + speedBoostDuration
+end
 
 function resetGame()
     car.x = 200
     car.y = 500
     obstacles = {}
+    powerups = {}
     obstacleSpeed = 100
     spawnInterval = 2
+    powerupSpawnInterval = 10
     timeSinceLastSpawn = 0
+    timeSinceLastPowerup = 0
     score = 0
     isGameOver = false
+    isPaused = false
     timeSinceLastDifficultyIncrease = 0
+    speedBoostActive = false
+    car.speed = 200
+end
+
+function love.keypressed(key)
+    if key == "p" then
+        isPaused = not isPaused
+    elseif key == "return" and isGameOver then
+        resetGame()
+    end
 end
