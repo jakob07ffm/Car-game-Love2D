@@ -17,17 +17,20 @@ local speedBoostActive = false
 local speedBoostEndTime = 0
 
 function love.load()
-    car.image = love.graphics.newImage("car.png")
-    car.width = car.image:getWidth()
-    car.height = car.image:getHeight()
-    obstacleImage = love.graphics.newImage("obstacle.png")
-    powerupImage = love.graphics.newImage("powerup.png")
-    scoreSound = love.audio.newSource("score.wav", "static")
-    crashSound = love.audio.newSource("crash.wav", "static")
-    backgroundMusic = love.audio.newSource("background.mp3", "stream")
+    -- Placeholder for the car image
+    car.width = 50
+    car.height = 100
+    
+    -- Placeholders for obstacle and powerup images
+    obstacleImage = nil
+    powerupImage = nil
+    
+    -- Placeholder for background music and sounds
+    backgroundMusic = nil
+    scoreSound = nil
+    crashSound = nil
+
     love.graphics.setFont(love.graphics.newFont(24))
-    backgroundMusic:setLooping(true)
-    love.audio.play(backgroundMusic)
 end
 
 function love.update(dt)
@@ -62,7 +65,6 @@ function love.update(dt)
         local obstacle = { x = math.random(0, love.graphics.getWidth() - car.width), y = -car.height, speed = obstacleSpeed }
         table.insert(obstacles, obstacle)
         score = score + 1
-        love.audio.play(scoreSound)
     end
 
     timeSinceLastPowerup = timeSinceLastPowerup + dt
@@ -72,30 +74,25 @@ function love.update(dt)
         table.insert(powerups, powerup)
     end
 
-
     for i, obstacle in ipairs(obstacles) do
         obstacle.y = obstacle.y + obstacle.speed * dt
     end
 
-
     for i, powerup in ipairs(powerups) do
         powerup.y = powerup.y + obstacleSpeed * dt
     end
-
 
     for i = #obstacles, 1, -1 do
         local obstacle = obstacles[i]
         if obstacle.y > love.graphics.getHeight() then
             table.remove(obstacles, i)
         elseif CheckCollision(car.x, car.y, car.width, car.height, obstacle.x, obstacle.y, car.width, car.height) then
-            love.audio.play(crashSound)
             isGameOver = true
             if score > highScore then
                 highScore = score
             end
         end
     end
-
 
     for i = #powerups, 1, -1 do
         local powerup = powerups[i]
@@ -107,7 +104,6 @@ function love.update(dt)
         end
     end
 
-
     timeSinceLastDifficultyIncrease = timeSinceLastDifficultyIncrease + dt
     if timeSinceLastDifficultyIncrease > 10 then
         timeSinceLastDifficultyIncrease = 0
@@ -116,13 +112,19 @@ function love.update(dt)
 end
 
 function love.draw()
-    love.graphics.draw(car.image, car.x, car.y)
+    -- Draw the car as a rectangle
+    love.graphics.rectangle("fill", car.x, car.y, car.width, car.height)
+    
+    -- Draw obstacles as rectangles
     for _, obstacle in ipairs(obstacles) do
-        love.graphics.draw(obstacleImage, obstacle.x, obstacle.y)
+        love.graphics.rectangle("fill", obstacle.x, obstacle.y, car.width, car.height)
     end
+    
+    -- Draw powerups as circles
     for _, powerup in ipairs(powerups) do
-        love.graphics.draw(powerupImage, powerup.x, powerup.y)
+        love.graphics.circle("fill", powerup.x + car.width / 2, powerup.y + car.height / 2, car.width / 2)
     end
+    
     love.graphics.print("Score: " .. score, 10, 10)
     love.graphics.print("High Score: " .. highScore, 10, 40)
 
